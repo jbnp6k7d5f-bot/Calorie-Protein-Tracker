@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Calories & Protein Tracker</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:900px;margin:auto;padding:18px;background:#f7f7f7;color:#222}
+.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:16px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+input,select,button{font-size:16px;min-height:42px;border:1px solid #ccc;border-radius:9px;padding:7px 10px;box-sizing:border-box}
+label{display:flex;flex-direction:column;gap:5px;font-size:13px}
+.foodrow{display:grid;grid-template-columns:1.5fr .7fr .8fr 1fr auto;gap:8px;align-items:end}
+.metric{border:1px solid #ddd;border-radius:10px;padding:10px}.big{font-size:21px;font-weight:700;margin-top:4px}
+.muted{color:#777;font-size:13px}.primary{background:#222;color:#fff;border-color:#222}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 5px;border-bottom:1px solid #eee}
+.actions{display:flex;gap:5px}.danger{color:#b00020}
+@media(max-width:650px){.summary{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.foodrow{grid-template-columns:1fr 1fr}.foodrow button{grid-column:2}}
+</style>
+</head>
+<body>
+<div class="card">
+<h2>Daily Calories & Protein Tracker</h2>
+<p class="muted">Add food, edit amounts, and automatically calculate calories and protein.</p>
+<div class="grid">
+<label>Calorie target (kcal)<input id="ct" type="number" value="1450"></label>
+<label>Protein target (g)<input id="pt" type="number" value="100"></label>
+</div>
+</div>
+
+<div class="card summary">
+<div class="metric"><div class="muted">Calories</div><div class="big" id="tc">0 kcal</div><div class="muted" id="cr">1,450 kcal left</div></div>
+<div class="metric"><div class="muted">Protein</div><div class="big" id="tp">0 g</div><div class="muted" id="pr">100 g left</div></div>
+<div class="metric"><div class="muted">Calories %</div><div class="big" id="cp">0%</div></div>
+<div class="metric"><div class="muted">Protein %</div><div class="big" id="pp">0%</div></div>
+</div>
+
+<div class="card">
+<h3>Add food</h3>
+<div class="foodrow">
+<label>Food<select id="food"></select></label>
+<label>Amount<input id="amt" type="number" min="0" step="1" value="1"></label>
+<label>Unit<select id="unit"></select></label>
+<div><div class="muted">This amount</div><b id="preview">0 kcal · 0 g</b></div>
+<button class="primary" id="add">Add</button>
+</div>
+</div>
+
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<h3>Today's foods</h3><button id="reset">Reset</button>
+</div>
+<div style="overflow-x:auto">
+<table><thead><tr><th>Food</th><th>Amount</th><th>Calories</th><th>Protein</th><th>Actions</th></tr></thead>
+<tbody id="rows"></tbody></table>
+</div>
+<p id="empty" class="muted">No foods added yet.</p>
+</div>
+
+<script>
+const foods={
+"Egg":{u:"egg",base:1,c:70,p:6.5},
+"Chicken breast (raw)":{u:"g",base:100,c:120,p:22.5},
+"Chicken thigh, skinless (raw)":{u:"g",base:100,c:140,p:20},
+"Fish":{u:"g",base:100,c:140,p:21.5},
+"Tuna, drained":{u:"g",base:100,c:125,p:25},
+"Whey protein":{u:"scoop",base:1,c:120,p:26},
+"Wholemeal bread":{u:"slice",base:1,c:80,p:7},
+"Banana":{u:"g",base:100,c:89,p:1.1},
+"Cooked rice":{u:"g",base:100,c:130,p:2.4},
+"Peanut butter":{u:"tbsp",base:1,c:95,p:3.5},
+"Unsweetened soy milk":{u:"ml",base:100,c:40,p:3.3},
+"Potato":{u:"g",base:100,c:80,p:2},
+"Tofu":{u:"g",base:100,c:80,p:8},
+"Greek yogurt":{u:"g",base:100,c:70,p:10},
+"Shishamo":{u:"fish",base:1,c:30,p:3.5},
+"Hot coffee (black)":{u:"cup",base:1,c:5,p:.3},
+"Dirty latte":{u:"glass",base:1,c:120,p:6}
+};
+
+let items=[];
+const food=document.getElementById("food"),unit=document.getElementById("unit"),amt=document.getElementById("amt");
+Object.keys(foods).forEach(x=>food.add(new Option(x,x)));
+
+function setUnit(){
+  const f=foods[food.value];
+  unit.innerHTML="";
+  unit.add(new Option(f.u,f.u));
+  amt.value=f.base;
+  preview();
+}
+function calc(name,a){
+  const f=foods[name],r=a/f.base;
+  return [f.c*r,f.p*r];
+}
+function preview(){
+  const v=calc(food.value,+amt.value||0);
+  document.getElementById("preview").textContent=Math.round(v[0])+" kcal · "+v[1].toFixed(1)+" g";
+}
+function render(){
+  let tc=0,tp=0;
+  const rows=document.getElementById("rows");
+  rows.innerHTML="";
+  items.forEach((x,i)=>{
+    tc+=x.c;tp+=x.p;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${x.name}</td><td>${x.a} ${x.u}</td><td>${Math.round(x.c)}</td><td>${x.p.toFixed(1)} g</td>
+    <td class="actions"><button onclick="editItem(${i})">Edit</button><button class="danger" onclick="removeItem(${i})">Delete</button></td>`;
+    rows.appendChild(tr);
+  });
+  document.getElementById("empty").style.display=items.length?"none":"block";
+  const ct=+document.getElementById("ct").value||0,pt=+document.getElementById("pt").value||0;
+  document.getElementById("tc").textContent=Math.round(tc)+" kcal";
+  document.getElementById("tp").textContent=tp.toFixed(1)+" g";
+  document.getElementById("cr").textContent=Math.max(0,ct-tc).toFixed(0)+" kcal left";
+  document.getElementById("pr").textContent=Math.max(0,pt-tp).toFixed(1)+" g left";
+  document.getElementById("cp").textContent=(ct?Math.round(tc/ct*100):0)+"%";
+  document.getElementById("pp").textContent=(pt?Math.round(tp/pt*100):0)+"%";
+}
+function editItem(i){
+  const x=items[i];
+  const a=prompt("Enter amount ("+x.u+"):",x.a);
+  if(a!==null && +a>0){
+    const v=calc(x.name,+a);
+    x.a=+a;x.c=v[0];x.p=v[1];render();
+  }
+}
+function removeItem(i){items.splice(i,1);render()}
+document.getElementById("add").onclick=()=>{
+  const a=+amt.value||0;
+  if(!a)return;
+  const v=calc(food.value,a);
+  items.push({name:food.value,a:a,u:foods[food.value].u,c:v[0],p:v[1]});
+  render();
+};
+document.getElementById("reset").onclick=()=>{
+  if(confirm("Reset today's foods?")){items=[];render();}
+};
+food.onchange=setUnit;
+amt.oninput=preview;
+document.getElementById("ct").oninput=render;
+document.getElementById("pt").oninput=render;
+setUnit();render();
+</script>
+</body>
+</html>
